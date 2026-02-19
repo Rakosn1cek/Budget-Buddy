@@ -9,6 +9,7 @@ from rich.panel import Panel
 from rich.text import Text
 from rich.table import Table
 from rich.progress import Progress, BarColumn, TextColumn
+from rich.align import Align
 
 # --- Configuration and Initialization (Arch Linux Optimized) ---
 
@@ -18,7 +19,7 @@ ARCHIVE_DIR = os.path.join(DATA_DIR, 'archives')
 
 DATABASE_EXPENSES = os.path.join(DATA_DIR, 'expenses.db')
 DATABASE_SETTINGS = os.path.join(DATA_DIR, 'settings.db')
-
+UI_WIDTH = 220  # Adjust this number to your preference
 CONSOLE = Console()
 
 PROTECTED_CATEGORIES = [
@@ -70,8 +71,9 @@ def display_dashboard(message=""):
     header_date = now.strftime("%A, %d %b %Y | %H:%M")
     
     header_content = Text(f"BUDGET BUDDY TUI | {header_date}", style="bold white on purple")
-    CONSOLE.print(Panel(header_content, title_align="left", border_style="purple"))
-
+    
+    CONSOLE.print(Align.center(Panel(header_content, title_align="left", border_style="purple", width=UI_WIDTH, expand=False)))
+    
     # Fetch the data from your existing summary function
     stats = get_financial_summary()
         
@@ -380,7 +382,7 @@ def get_recurring_templates():
         return cursor.fetchall()
 
 def manage_recurring_templates():
-    """TUI for adding/deleting recurring payment templates."""
+    """TUI for adding/editing/deleting recurring payment templates."""
     templates = get_recurring_templates()
     CONSOLE.clear()
     CONSOLE.print(Panel("[bold orange1]Manage Recurring Templates[/bold orange1]", border_style="orange1"))
@@ -388,7 +390,6 @@ def manage_recurring_templates():
     if not templates:
         CONSOLE.print("[yellow]No templates found.[/yellow]")
     else:
-        # Group and display templates in Panels (Cards)
         grouped = {}
         for tid, name, amt, cat, desc, day in templates:
             grouped.setdefault(cat, []).append({'id': tid, 'name': name, 'amount': amt, 'day': day})
@@ -408,12 +409,15 @@ def manage_recurring_templates():
         
         CONSOLE.print(Group(*cards))
         
-    CONSOLE.print("\n[1] Add New | [2] Delete | [C] Cancel")
-    ch = input("Choice: ").upper().strip()
+    CONSOLE.print("\n[1] Add New | [2] Delete | [3] Edit | [C] Cancel")
+    # Using CONSOLE.input here fixes the raw tag problem
+    ch = CONSOLE.input("[bold white]Choice: [/bold white]").upper().strip()
+    
     if ch == '1': return add_recurring_template()
     if ch == '2': return delete_recurring_template()
+    if ch == '3': return edit_recurring_template() # New Option
     return "Cancelled."
-
+    
 def add_recurring_template():
     """Adds a new template to the settings database."""
     CONSOLE.clear()
@@ -446,6 +450,37 @@ def delete_recurring_template():
             return f"[green]Deleted template ID {tid}[/green]"
     return "[red]ID not found.[/red]"
 
+def edit_recurring_template():
+    """Edits an existing template with 'Enter to keep' logic."""
+    tid = CONSOLE.input("\n[bold cyan]Enter Template ID to edit (C to cancel): [/bold cyan]").strip()
+    if tid.upper() == 'C' or not tid: return "Cancelled."
+
+    with sqlite3.connect(DATABASE_SETTINGS) as conn:
+        conn.row_factory = sqlite3.Row # Allows us to access by name
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM recurring_templates WHERE id = ?", (tid,))
+        template = cursor.fetchone()
+        
+        if not template:
+            return "[red]Template ID not found.[/red]"
+
+        CONSOLE.print(f"\n[italic]Editing: {template['name']}. Press Enter to keep current values.[/italic]\n")
+        
+        # We prompt for all fields found in your schema
+        new_name = CONSOLE.input(f"Name [[white]{template['name']}[/white]]: ") or template['name']
+        new_amt = CONSOLE.input(f"Amount [[white]{template['amount']}[/white]]: ") or template['amount']
+        new_day = CONSOLE.input(f"Due Day [[white]{template['due_day']}[/white]]: ") or template['due_day']
+        new_cat = CONSOLE.input(f"Category [[white]{template['category']}[/white]]: ") or template['category']
+        new_desc = CONSOLE.input(f"Description [[white]{template['description']}[/white]]: ") or template['description']
+
+        conn.execute("""
+            UPDATE recurring_templates 
+            SET name = ?, amount = ?, category = ?, description = ?, due_day = ? 
+            WHERE id = ?
+        """, (new_name, float(new_amt), new_cat, new_desc, int(new_day), tid))
+        
+    return f"[green]Updated template: {new_name}[/green]"
+    
 def apply_recurring_template():
     """Manually triggers a template to record a transaction today."""
     templates = get_recurring_templates()
@@ -1128,8 +1163,14 @@ def main():
 if __name__ == "__main__":
     import sys
     if len(sys.argv) > 1 and sys.argv[1] == "--stats":
-        # Temporarily removed the try/except to see the real error
         print(get_dashboard_line())
         sys.exit(0)
     else:
-        main()
+        try:
+            main()
+        finally:
+            # Only runs when you close the interactive TUI
+            with sqlite3.connect(DATABASE_SETTINGS) as conn:
+                conn.execute("VACUUM")
+            with sqlite3.connect(DATABASE_EXPENSES) as conn:
+                conn.execute("VACUUM")
