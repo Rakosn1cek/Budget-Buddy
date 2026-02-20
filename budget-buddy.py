@@ -9,7 +9,6 @@ from rich.panel import Panel
 from rich.text import Text
 from rich.table import Table
 from rich.progress import Progress, BarColumn, TextColumn
-from rich.align import Align
 
 # --- Configuration and Initialization (Arch Linux Optimized) ---
 
@@ -19,7 +18,7 @@ ARCHIVE_DIR = os.path.join(DATA_DIR, 'archives')
 
 DATABASE_EXPENSES = os.path.join(DATA_DIR, 'expenses.db')
 DATABASE_SETTINGS = os.path.join(DATA_DIR, 'settings.db')
-UI_WIDTH = 220  # Adjust this number to your preference
+UI_WIDTH = 84  # Adjust this number to your preference
 CONSOLE = Console()
 
 PROTECTED_CATEGORIES = [
@@ -70,9 +69,9 @@ def display_dashboard(message=""):
     now = datetime.datetime.now()
     header_date = now.strftime("%A, %d %b %Y | %H:%M")
     
-    header_content = Text(f"BUDGET BUDDY TUI | {header_date}", style="bold white on purple")
+    header_content = Text(f"BUDGET BUDDY TUI | {header_date}", style="bold white on purple", justify="center")
     
-    CONSOLE.print(Align.center(Panel(header_content, title_align="left", border_style="purple", width=UI_WIDTH, expand=False)))
+    CONSOLE.print(Panel(header_content, title_align="center", border_style="purple", expand=True, padding=(0, 1)))
     
     # Fetch the data from your existing summary function
     stats = get_financial_summary()
@@ -399,8 +398,8 @@ def manage_recurring_templates():
             table = Table(show_header=True, header_style="bold dim", box=None)
             table.add_column("ID", style="cyan", width=4)
             table.add_column("Day", style="yellow", width=4)
-            table.add_column("Name", style="bold white")
-            table.add_column("Amount", justify="right", style="red")
+            table.add_column("Name", style="bold white", width=20)
+            table.add_column("Amount", justify="right", style="red", width=10)
             
             for item in items:
                 table.add_row(str(item['id']), str(item['day']), item['name'], f"£{item['amount']:,.2f}")
@@ -496,9 +495,9 @@ def apply_recurring_template():
     # --- ADDED DISPLAY LOGIC ---
     table = Table(show_header=True, header_style="bold magenta")
     table.add_column("ID", style="dim", width=6)
-    table.add_column("Name", min_width=20)
-    table.add_column("Amount", justify="right")
-    table.add_column("Category")
+    table.add_column("Name", min_width=30)
+    table.add_column("Amount", justify="left", width=10)
+    table.add_column("Category", min_width=28)
 
     for t in templates:
         # Adjust indices if your get_recurring_templates() returns columns differently
@@ -642,7 +641,7 @@ def manage_categories_full():
     
     cats = get_categories_with_ids()
     table = Table(show_header=True, header_style="bold cyan")
-    table.add_column("ID"); table.add_column("Name")
+    table.add_column("ID", width=5); table.add_column("Name", width=20)
     for cid, name in cats:
         table.add_row(str(cid), name)
     
@@ -799,10 +798,10 @@ def weekly_summary():
         return
 
     table = Table(title=f"Weekly Breakdown: {start_dt.strftime('%d %b')} - {end_dt.strftime('%d %b')}", show_header=True, header_style="bold magenta")
-    table.add_column("Category", style="cyan")
-    table.add_column("Income", justify="right", style="green")
-    table.add_column("Expense", justify="right", style="red")
-    table.add_column("Net", justify="right")
+    table.add_column("Category", style="cyan", width=20)
+    table.add_column("Income", justify="left", style="green", width=10)
+    table.add_column("Expense", justify="left", style="red",width=10)
+    table.add_column("Net", justify="left", width=10)
 
     t_inc = t_exp = 0
     for cat, val in data.items():
@@ -813,7 +812,7 @@ def weekly_summary():
 
     footer = Group(
         table,
-        Text("\n" + "─" * 40, style="dim"),
+        Text("\n" + "═" * 63, style="dim"),
         Text.from_markup(f"[bold green]Total Income:   £{t_inc:,.2f}[/bold green]"),
         Text.from_markup(f"[bold red]Total Expense:  £{t_exp:,.2f}[/bold red]"),
         Text.from_markup(f"[bold cyan]Weekly Net:     £{t_inc - t_exp:,.2f}[/bold cyan]")
@@ -838,10 +837,10 @@ def monthly_summary():
         return
 
     table = Table(title=f"Monthly Breakdown: {now.strftime('%B %Y')}", show_header=True, header_style="bold cyan")
-    table.add_column("Category", style="magenta")
-    table.add_column("Income", justify="right", style="green")
-    table.add_column("Expense", justify="right", style="red")
-    table.add_column("Net", justify="right")
+    table.add_column("Category", style="magenta", width=20)
+    table.add_column("Income", justify="left", style="green", width=10)
+    table.add_column("Expense", justify="left", style="red", width=10)
+    table.add_column("Net", justify="left", width=10)
 
     t_inc = t_exp = 0
     for cat, val in data.items():
@@ -852,7 +851,7 @@ def monthly_summary():
 
     footer = Group(
         table,
-        Text("\n" + "═" * 40, style="dim"),
+        Text("\n" + "═" * 63, style="dim"),
         Text.from_markup(f"[bold green]Total Income:   £{t_inc:,.2f}[/bold green]"),
         Text.from_markup(f"[bold red]Total Expense:  £{t_exp:,.2f}[/bold red]"),
         Text.from_markup(f"[bold cyan]Monthly Net:    £{t_inc - t_exp:,.2f}[/bold cyan]")
