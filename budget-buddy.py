@@ -1066,15 +1066,14 @@ def perform_monthly_wrapup(month_to_archive):
     return f"Archived to: {archive_filename}"
 
 def reset_database():
-    """Wipes the transactions table for a fresh start."""
-    try:
-        with sqlite3.connect(DATABASE_EXPENSES) as conn:
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM transactions")
-            conn.commit()
-        print("[bold yellow]󰃭 Database reset for the new month![/bold yellow]")
-    except Exception as e:
-        print(f"[bold red]Reset Error: {e}[/bold red]")
+    """Wipes the transactions table and optimizes the file."""
+    with sqlite3.connect(DATABASE_EXPENSES) as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM transactions")
+        conn.commit()
+        # Optimize the file ONLY once a month after the wipe
+        conn.execute("VACUUM") 
+    print("[bold yellow]󰃭 Database reset and optimized for the new month![/bold yellow]")
 
 # --- Enhanced Summary Views ---
 def get_financial_summary():
@@ -1188,16 +1187,25 @@ def main():
         else: startup_msg = "[red]Invalid selection.[/red]"
 
 if __name__ == "__main__":
-    import sys
-    if len(sys.argv) > 1 and sys.argv[1] == "--stats":
-        print(get_dashboard_line())
-        sys.exit(0)
-    else:
-        try:
-            main()
-        finally:
-            # Only runs when you close the interactive TUI
-            with sqlite3.connect(DATABASE_SETTINGS) as conn:
-                conn.execute("VACUUM")
-            with sqlite3.connect(DATABASE_EXPENSES) as conn:
-                conn.execute("VACUUM")
+    if __name__ == "__main__":
+        import sys
+        # Handle Dashboard/Stats call (No VACUUM here)
+        if len(sys.argv) > 1 and sys.argv[1] == "--stats":
+            # Note: We should NOT run check_and_reset_monthly here 
+            # to avoid slow dashboard loads or accidental wipes.
+            print(get_dashboard_line())
+            sys.exit(0)
+        else:
+            # Run Interactive TUI
+            try:
+                # RUN THE RESET CHECK ONLY IN INTERACTIVE MODE
+                check_and_reset_monthly() 
+                main()
+            except KeyboardInterrupt:
+                pass # Handle Ctrl+C gracefully
+            except Exception as e:
+                print(f"Error: {e}")
+            finally:
+                # Removed VACUUM from here to prevent exit crashes.
+                # The script will now exit instantly and cleanly.
+                pass
