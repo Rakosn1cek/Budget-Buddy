@@ -1178,7 +1178,7 @@ def main():
         elif choice == '9': startup_msg = add_to_savings()
         elif choice == '10': startup_msg = manage_recurring_templates()
         elif choice == '11': startup_msg = apply_recurring_template()
-        elif choice == '12': break # Exit
+        elif choice == '12': import sys; print("[yellow]Closing session...[/yellow]"); sys.exit(0)
         elif choice == '13': startup_msg = manage_categories_full()
         elif choice == '14':
             # This automatically calculates "Last Month" for a manual trigger
@@ -1187,25 +1187,21 @@ def main():
         else: startup_msg = "[red]Invalid selection.[/red]"
 
 if __name__ == "__main__":
-    if __name__ == "__main__":
-        import sys
-        # Handle Dashboard/Stats call (No VACUUM here)
-        if len(sys.argv) > 1 and sys.argv[1] == "--stats":
-            # Note: We should NOT run check_and_reset_monthly here 
-            # to avoid slow dashboard loads or accidental wipes.
-            print(get_dashboard_line())
-            sys.exit(0)
-        else:
-            # Run Interactive TUI
-            try:
-                # RUN THE RESET CHECK ONLY IN INTERACTIVE MODE
-                check_and_reset_monthly() 
-                main()
-            except KeyboardInterrupt:
-                pass # Handle Ctrl+C gracefully
-            except Exception as e:
-                print(f"Error: {e}")
-            finally:
-                # Removed VACUUM from here to prevent exit crashes.
-                # The script will now exit instantly and cleanly.
-                pass
+    import sys
+    # Handle Dashboard/Stats call
+    if len(sys.argv) > 1 and sys.argv[1] == "--stats":
+        print(get_dashboard_line())
+        sys.exit(0)
+    else:
+        # Run Interactive TUI
+        try:
+            check_and_reset_monthly() 
+            main()
+        except (KeyboardInterrupt, SystemExit):
+            # Exit quietly for Ctrl+C or menu exit
+            pass 
+        except Exception as e:
+            print(f"Error: {e}")
+        finally:
+            # Script exits instantly without I/O hangs
+            pass
