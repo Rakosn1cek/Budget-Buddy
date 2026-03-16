@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# =================================================================
+# BUDGET BUDDY TUI (Original Termux Edition optimised for Arch Linux)
+# Created by: Lukas Grumlik/Rakosn1cek
+# First Implemented: November 2025 
+# Features: Local SQLite, Recurring Logic, Savings Tracking
+# =================================================================
 import sqlite3
 import datetime
 import math
@@ -114,22 +120,42 @@ def display_dashboard(message=""):
     else:
         savings_panel = Panel("[yellow]No savings goal set. Use Option 8![/yellow]", title="SAVINGS GOAL", border_style="yellow", width=87)
 
-    # 3. Menu Panel
-    menu_table = Table.grid(padding=(0, 1))
-    menu_options = [
-        ("1. Add Transaction", "bold green"), ("2. View History", "bold cyan"), 
-        ("3. Filter Category", "bold magenta"), ("4. Weekly Summary", "yellow"),
-        ("5. Monthly Summary", "yellow"), ("6. Upcoming Calendar", "bright_blue"),
-        ("7. Delete Transaction", "bold red"), ("8. Set Savings Goal", "yellow"),
-        ("9. Add to Savings", "green"), ("10. Manage Templates", "orange1"),
-        ("11. Apply Recurring", "green"), ("12. Exit", "bold white"),
-        ("13. Manage Categories", "bold yellow"), ("14. Monthly Wrap-up", "bold blue")
-    ]
-    for opt, style in menu_options:
-        parts = opt.split(". ", 1)
-        menu_table.add_row(f"[bold white]{parts[0]}.[/bold white]", Text(parts[1], style=style))
-    menu_panel = Panel(menu_table, title="MENU", border_style="magenta", width=87)
+    # 3. Menu Panel (Defined clearly to prevent local variable errors)
+    menu_table = Table.grid(expand=True)
+    menu_table.add_column(ratio=1) 
+    menu_table.add_column(ratio=1) 
 
+    menu_options = [
+        ("1. Add Transaction", "bold green"), (" 8. Set Savings Goal", "yellow"),
+        ("2. View History", "bold cyan"), (" 9. Add to Savings", "green"),
+        ("3. Filter Category", "bold magenta"), ("10. Manage Templates", "orange1"),
+        ("7. Delete Transaction", "bold red"), ("11. Apply Recurring", "green"),
+        ("4. Weekly Summary", "yellow"), ("13. Manage Categories", "bold yellow"),
+        ("5. Monthly Summary", "yellow"), ("14. Monthly Wrap-up", "bold blue"),
+        ("6. Upcoming Calendar", "bright_blue"), ("12. Exit", "bold white")
+    ]
+
+    # Create the row list first
+    rows = []
+    for i in range(0, len(menu_options), 2):
+        pair = menu_options[i:i+2]
+        row_content = []
+        for opt, style in pair:
+            num, text = opt.split(". ", 1)
+            row_content.append(f"[bold white]{num}.[/bold white] [{style}]{text}[/{style}]")
+        
+        # Fill second column if we have an odd number of items
+        if len(row_content) < 2:
+            row_content.append("")
+        
+        rows.append(row_content)
+
+    # Add all rows to the table
+    for r in rows:
+        menu_table.add_row(*r)
+
+    # Assign the panel outside of any loops or logic gates
+    menu_panel = Panel(menu_table, title="MENU", border_style="magenta", width=87)        
     # 4. Recent Transactions Panel
     recent_txs = get_last_n_transactions(5)
     recent_tx_table = Table(show_header=True, header_style="bold green", box=None, padding=(0, 1))
