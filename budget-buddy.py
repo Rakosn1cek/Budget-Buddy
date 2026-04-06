@@ -1084,12 +1084,78 @@ def check_and_reset_monthly():
             )
             
 def perform_monthly_wrapup(month_to_archive):
-    """Archives the specified month's data (Format: YYYY-MM)."""
-    # ... [Your SQL Query and Markdown writing logic goes here] ...
-    # Ensure you use 'month_to_archive' in your SQL WHERE clause!
+    """Archives the specified month's data (Format: YYYY-MM) to a Markdown file."""
     
+    # 1. Force absolute paths for Arch Linux
+    base_path = os.path.expanduser("~/.local/share/budget-buddy")
+    db_path = os.path.join(base_path, "expenses.db")
+    archive_dir = os.path.join(base_path, "archives")
+
+    # Ensure archive directory exists
+    if not os.path.exists(archive_dir):
+        os.makedirs(archive_dir)
+
     archive_filename = f"Summary_{month_to_archive}.md"
-    return f"Archived to: {archive_filename}"
+    file_path = os.path.join(archive_dir, archive_filename)
+
+    try:
+        # 2. Connect to the specific database file
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        # 3. Safety Check: Verify the table exists in this specific file
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='transactions'")
+        if not cursor.fetchone():
+            return "Error: 'transactions' table not found in budget.db"
+
+        # 4. Fetch March data using the month_to_archive string (e.g., '2026-03')
+        query = "SELECT date, description, amount, category FROM transactions WHERE date LIKE ? ORDER BY date ASC"
+        cursor.execute(query, (f"{month_to_archive}%",))
+        rows = cursor.fetchall()
+        
+        if not rows:
+            return f"No transactions found for {month_to_archive}."
+
+        # 5. Build the Markdown Summary
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(f"# Budget Summary: {month_to_archive}\n\n")
+            f.write("| Date | Description | Category | Amount |\n")
+            f.write("| :--- | :--- | :--- | :--- |\n")
+            
+            net_balance = 0
+            total_income = 0
+            total_expenses = 0
+
+            for row in rows:
+                date, desc, amt, cat = row
+                
+                # Check if it's income or expense (adjust 'Salary' to match your DB exactly)
+                if cat.lower() in ["salary", "income", "deposit"]:
+                    total_income += amt
+                    net_balance += amt
+                    display_amt = f"£{amt:.2f}"
+                else:
+                    total_expenses += amt
+                    net_balance -= amt
+                    display_amt = f"-£{amt:.2f}"
+                
+                f.write(f"| {date} | {desc} | {cat} | {display_amt} |\n")
+            
+            f.write("\n---\n")
+            f.write(f"**Total Income:** £{total_income:.2f}  \n")
+            f.write(f"**Total Expenses:** £{total_expenses:.2f}  \n")
+            f.write(f"**Net Monthly Balance:** £{net_balance:.2f}\n")
+            
+            f.flush()
+            os.fsync(f.fileno())
+
+        return f"Archived to: {archive_filename}"
+
+    except Exception as e:
+        return f"Wrap-up Failed: {str(e)}"
+    finally:
+        if 'conn' in locals():
+            conn.close()
 
 def reset_database():
     """Wipes the transactions table and optimizes the file."""
